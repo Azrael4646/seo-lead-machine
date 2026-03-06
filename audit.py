@@ -1,34 +1,187 @@
 import requests
 from bs4 import BeautifulSoup
+import time
 
 def audit_site(url):
 
     issues = []
+    data = {}
 
-    r = requests.get(url, timeout=10)
+    # Ensure schema exists
+    if not url.startswith("http"):
+        url = "https://" + url
 
-    html = r.text
+    try:
 
-    soup = BeautifulSoup(html,"html.parser")
+        start = time.time()
+        r = requests.get(url, timeout=10)
+        load_time = time.time() - start
 
-    if not soup.title:
-        issues.append("Missing title tag")
+        html = r.text
+        soup = BeautifulSoup(html, "html.parser")
 
-    if not soup.find("meta",attrs={"name":"description"}):
-        issues.append("Missing meta description")
+        # ------------------------
+        # Basic Technical Checks
+        # ------------------------
 
-    h1 = soup.find_all("h1")
+        if not url.startswith("https"):
+            issues.append("Site not using HTTPS")
 
-    if len(h1) == 0:
-        issues.append("No H1 tag")
+        if load_time > 3:
+            issues.append("Slow page load (>3s)")
 
-    images = soup.find_all("img")
+        data["load_time"] = round(load_time,2)
 
-    missing_alt = [img for img in images if not img.get("alt")]
+        # ------------------------
+        # Title Tag
+        # ------------------------
 
-    if len(missing_alt) > 3:
-        issues.append("Images missing alt text")
+        title = soup.title.string.strip() if soup.title else ""
 
-    score = 100 - (len(issues)*15)
+        if not title:
+            issues.append("Missing title tag")
+        elif len(title) < 30 or len(title) > 60:
+            issues.append("Title length not optimal (30-60 chars)")
 
-    return score, issues, html
+        data["title"] = title
+
+        # ------------------------
+        # Meta Description
+        # ------------------------
+
+        meta_desc = soup.find("meta", attrs={"name":"description"})
+
+        if not meta_desc:
+            issues.append("Missing meta description")
+            desc_text = ""
+        else:
+            desc_text = meta_desc.get("content","")
+            if len(desc_text) < 70 or len(desc_text) > 160:
+                issues.append("Meta description length not optimal")
+
+        data["meta_description"] = desc_text
+
+        # ------------------------
+        # Headings
+        # ------------------------
+
+        h1_tags = soup.find_all("h1")
+
+        if len(h1_tags) == 0:
+            issues.append("Missing H1 tag")
+
+        if len(h1_tags) > 1:
+            issues.append("Multiple H1 tags")
+
+        data["h1_count"] = len(h1_tags)
+
+        # ------------------------
+        # Word Count
+        # ------------------------
+
+        text = soup.get_text(separator=" ")
+        words = text.split()
+
+        if len(words) < 300:
+            issues.append("Low content word count")
+
+        data["word_count"] = len(words)
+
+        # ------------------------
+        # Images
+        # ------------------------
+
+        images = soup.find_all("img")
+        missing_alt = [img for img in images if not img.get("alt")]
+
+        if len(images) > 0 and len(missing_alt) / len(images) > 0.3:
+            issues.append("Many images missing alt text")
+
+        data["images"] = len(images)
+        data["missing_alt"] = len(missing_alt)
+
+        # ------------------------
+        # Internal Links
+        # ------------------------
+
+        links = soup.find_all("a", href=True)
+        internal_links = [l for l in links if url in l["href"]]
+
+        if len(internal_links) < 3:
+            issues.append("Very few internal links")
+
+        data["internal_links"] = len(internal_links)
+
+        # ------------------------
+        # Canonical Tag
+        # ------------------------
+
+        canonical = soup.find("link", rel="canonical")
+
+        if not canonical:
+            issues.append("Missing canonical tag")
+
+        # ------------------------
+        # Viewport (Mobile SEO)
+        # ------------------------
+
+        viewport = soup.find("meta", attrs={"name":"viewport"})
+
+        if not viewport:
+            issues.append("Missing mobile viewport tag")
+
+        # ------------------------
+        # Structured Data
+        # ------------------------
+
+        schema = soup.find_all("script", type="application/ld+json")
+
+        if not schema:
+            issues.append("No structured data (Schema.org)")
+
+        data["schema_blocks"] = len(schema)
+
+        # ------------------------
+        # Robots Meta
+        # ------------------------
+
+        robots_meta = soup.find("meta", attrs={"name":"robots"})
+
+        if robots_meta and "noindex" in robots_meta.get("content",""):
+            issues.append("Page is set to noindex")
+
+        # ------------------------
+        # Sitemap Check
+        # ------------------------
+
+        try:
+            sitemap = requests.get(url + "/sitemap.xml", timeout=5)
+
+            if sitemap.status_code != 200:
+                issues.append("No sitemap.xml found")
+        except:
+            issues.append("Sitemap not accessible")
+
+        # ------------------------
+        # Robots.txt Check
+        # ------------------------
+
+        try:
+            robots = requests.get(url + "/robots.txt", timeout=5)
+
+            if robots.status_code != 200:
+                issues.append("No robots.txt found")
+        except:
+            issues.append("robots.txt not accessible")
+
+        # ------------------------
+        # Score Calculation
+        # ------------------------
+
+        score = max(0, 100 - len(issues)*5)
+
+        return score, issues, data
+
+    except Exception as e:
+
+        return 0, ["Site unreachable"], {}
