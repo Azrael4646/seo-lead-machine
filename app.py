@@ -1,24 +1,45 @@
 import streamlit as st
+import pandas as pd
 from audit import audit_site
-from email_finder import find_email
 
+st.title("Beardly SEO Bulk Auditor")
 
+uploaded_file = st.file_uploader("Upload CSV with websites", type=["csv"])
 
-st.title("Beardly SEO Lead Finder")
+if uploaded_file:
 
-website = st.text_input("Enter business website")
+    df = pd.read_csv(uploaded_file)
 
-if st.button("Run SEO Audit"):
+    if "website" not in df.columns:
+        st.error("CSV must contain a column named 'website'")
+    else:
 
-    score, issues, html = audit_site(website)
+        results = []
 
-    emails = find_email(html) if html else []
+        progress = st.progress(0)
 
-    st.subheader("SEO Score")
-    st.write(score)
+        for i, url in enumerate(df["website"]):
 
-    st.subheader("Issues Found")
-    st.write(issues)
+            score, issues, data = audit_site(url)
 
-    st.subheader("Emails Found")
-    st.write(emails)
+            results.append({
+                "website": url,
+                "seo_score": score,
+                "issues": ", ".join(issues)
+            })
+
+            progress.progress((i+1)/len(df))
+
+        results_df = pd.DataFrame(results)
+
+        st.subheader("Audit Results")
+        st.dataframe(results_df)
+
+        csv = results_df.to_csv(index=False).encode("utf-8")
+
+        st.download_button(
+            "Download Results CSV",
+            csv,
+            "seo_audit_results.csv",
+            "text/csv"
+        )
