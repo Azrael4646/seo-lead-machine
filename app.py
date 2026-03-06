@@ -23,10 +23,13 @@ if uploaded_file:
             score, issues, data = audit_site(url)
 
             results.append({
-                "website": url,
-                "seo_score": score,
-                "issues": ", ".join(issues)
-            })
+    "website": url,
+    "seo_score": score,
+    "title": data.get("title"),
+    "word_count": data.get("word_count"),
+    "internal_links": data.get("internal_links"),
+    "issues": ", ".join(issues)
+})
 
             progress.progress((i+1)/len(df))
 
