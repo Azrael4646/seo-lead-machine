@@ -1,72 +1,57 @@
 import streamlit as st
 import pandas as pd
+from maps_scraper import get_maps_leads
 from parallel_audit import audit_many
 
-st.set_page_config(
-    page_title="Beardly SEO Lead Finder",
-    page_icon="🔍",
-    layout="wide"
-)
+st.title("Beardly SEO Lead Finder")
 
-st.title("🔍 Beardly SEO Bulk Auditor")
+tab1, tab2 = st.tabs(["Google Maps Lead Generator", "CSV Audit"])
 
-st.write(
-"""
-Upload a CSV containing a column named **website**.
-The system will crawl each site and run an SEO audit.
-"""
-)
+# ----------------------------
+# Google Maps Lead Generator
+# ----------------------------
 
-uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
+with tab1:
 
-if uploaded_file is not None:
+    query = st.text_input("Search Google Maps (example: plumber cape town)")
 
-    try:
-        df = pd.read_csv(uploaded_file)
+    if st.button("Find Businesses"):
 
-        if "website" not in df.columns:
-            st.error("CSV must contain a column called 'website'")
-        else:
+        leads = get_maps_leads(query)
 
-            websites = df["website"].dropna().tolist()
+        df = pd.DataFrame(leads)
 
-            st.success(f"{len(websites)} websites loaded.")
+        st.dataframe(df)
 
-            if st.button("Start SEO Audit"):
+        csv = df.to_csv(index=False).encode("utf-8")
 
-                progress_bar = st.progress(0)
-                status_text = st.empty()
+        st.download_button(
+            "Download Leads",
+            csv,
+            "maps_leads.csv",
+            "text/csv"
+        )
 
-                results = []
+        # Run SEO audit automatically
+        websites = df["website"].dropna().tolist()
 
-                total = len(websites)
+        if websites:
 
-                for i, chunk_start in enumerate(range(0, total, 20)):
+            st.write("Running SEO audits...")
 
-                    chunk = websites[chunk_start:chunk_start+20]
+            results = audit_many(websites)
 
-                    status_text.text(f"Auditing websites {chunk_start+1} - {min(chunk_start+20,total)}")
+            results_df = pd.DataFrame(results)
 
-                    chunk_results = audit_many(chunk)
+            st.subheader("SEO Audit Results")
 
-                    results.extend(chunk_results)
+            st.dataframe(results_df)
 
-                    progress_bar.progress(min((chunk_start+20)/total,1.0))
+            csv = results_df.to_csv(index=False).encode("utf-8")
 
-                results_df = pd.DataFrame(results)
-
-                st.subheader("Audit Results")
-
-                st.dataframe(results_df, use_container_width=True)
-
-                csv = results_df.to_csv(index=False).encode("utf-8")
-
-                st.download_button(
-                    "Download Results CSV",
-                    csv,
-                    "seo_audit_results.csv",
-                    "text/csv"
-                )
-
-    except Exception as e:
-        st.error(f"Error reading CSV: {e}")
+            st.download_button(
+                "Download SEO Leads",
+                csv,
+                "seo_leads.csv",
+                "text/csv"
+            )
