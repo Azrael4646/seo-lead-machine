@@ -5,7 +5,7 @@ from parallel_audit import audit_many
 
 st.title("Beardly SEO Lead Finder")
 
-tab1, tab2 = st.tabs(["Google Maps Lead Generator", "CSV Audit"])
+tab1 = st.tabs(["Google Maps Lead Generator"])
 
 # ----------------------------
 # Google Maps Lead Generator
