@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 from audit import audit_site
+import time
+time.sleep(1)
 
 st.title("Beardly SEO Bulk Auditor")
 
