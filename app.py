@@ -2,6 +2,15 @@ import streamlit as st
 from audit import audit_site
 from email_finder import find_email
 
+score, issues, data = audit_site(website)
+
+if data:
+    html = data.get("html","")
+else:
+    html = ""
+
+emails = find_email(html)
+
 st.title("Beardly SEO Lead Finder")
 
 website = st.text_input("Enter business website")
