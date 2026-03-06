@@ -1,5 +1,3 @@
-</> Python
-
 import streamlit as st
 from audit import audit_site
 from email_finder import find_email
